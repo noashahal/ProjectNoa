@@ -131,13 +131,14 @@ class Client(object):
         while len(raw_chunk_size) < raw_chunk_size_to_get:
             raw_chunk_size += self.receive_video_socket.recv(
                 raw_chunk_size_to_get - len(raw_chunk_size))
-        try:
-            chunk_size = int(raw_chunk_size.decode())
-        except Exception as e:
-            print('raw chunk size is {} its length is {}'
-                  .format(raw_chunk_size, len(raw_chunk_size)))
-            print("exception receive chunk 1: {}".format(e))
+        #try:
+        chunk_size = int(raw_chunk_size.decode())
         left = chunk_size
+        #except Exception as e:
+            #print('raw chunk size is {} its length is {}'
+                  #.format(raw_chunk_size, len(raw_chunk_size)))
+            #print("exception receive chunk 1: {}".format(e))
+
         chunk = b''
         try:
             while left > END:

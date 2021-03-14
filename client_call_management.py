@@ -8,7 +8,7 @@ TIME_SLEEP_USERS = 0.5
 MAX_CHUNK_SIZE = 10  # for zfill - len of messages
 EXIT = -1
 LISTEN = 10
-IP = '172.29.225.45'
+IP = '172.29.232.74'
 LISTEN_PORT = 1000
 CALL_PORT = 1001
 USERS_PORT = 1002
@@ -66,7 +66,7 @@ class Client(object):
             return mes
         except Exception as e:
             sock.close()
-            print("Error in receive_mes: ", e)
+            print("Errorr in receive_mes: ", e)
 
     @staticmethod
     def send_mes(mes, sock):
@@ -118,14 +118,21 @@ class Client(object):
         connects with users socket,
         refreshes connected every two seconds
         """
+        done = False
         # connects users socket:
         self.users_socket = self.start_socket(IP, USERS_PORT)
-        while True:
-            # gets and sets calling options
-            calling_options = self.receive_mes(self.users_socket)
-            #print("options listener: {}".format(calling_options))
-            self.connected = calling_options.split(',')
-            time.sleep(TIME_SLEEP_USERS)
+        while not done:
+            try:
+                # gets and sets calling options
+                calling_options = self.receive_mes(self.users_socket)
+                #print("options listener: {}".format(calling_options))
+                self.connected = calling_options.split(',')
+                time.sleep(TIME_SLEEP_USERS)
+            except socket.error as msg:
+                print("socket failure: {}".format(msg))
+                done = True
+            except Exception as e:
+                print(e)
 
     def get_call(self):
         """

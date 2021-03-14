@@ -203,7 +203,6 @@ class GuiCallOptions(GuiAll):
         self.options = self.client.connected
         if self.username in self.options:
             self.options.remove(self.username)
-        print("call options, options: {}".format(self.options))
         self.options_lstbox = wx.ListBox(self.pnl, choices=self.options, style=wx.LB_SINGLE, name="contacts")
         self.init_ui()
 
