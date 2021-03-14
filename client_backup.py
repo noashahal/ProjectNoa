@@ -5,10 +5,10 @@ import numpy as np
 import cv2 as cv
 import time
 from winreg import *
-from final_peula import *
+#from constants import *
 import pyaudio
 VALUES_COUNT = 2
-IP = '172.29.232.74'  # IP ADDRESS
+IP = "172.29.225.45"  # IP ADDRESS
 SEND_VIDEO_PORT = 1114
 RECEIVE_VIDEO_PORT = 1113
 SEND_AUDIO_PORT = 1111
@@ -33,7 +33,6 @@ CHANNELS = 1  # num of channels for audio
 RATE = 44100  # audio send rate
 chunk = CHUNK = 1024  # audio chunk size
 EXIT = -1
-ADD = 1
 
 
 class Client(object):
@@ -52,7 +51,6 @@ class Client(object):
         self.my_name = my_name  # "noa"
         self.call_name = call_name  # "amir"
         self.lock = threading.Lock()
-        self.still_online = True
 
         self.voice_device = pyaudio.PyAudio()
 
@@ -65,18 +63,14 @@ class Client(object):
         sends call to server
         starts thread that sends video
         """
-        try:
-            receive_audio_thread = threading.Thread(target=self.receive_audio)
-            receive_audio_thread.start()
-            send_audio_thread = threading.Thread(target=self.send_audio)
-            send_audio_thread.start()
-            receive_video_thread = threading.Thread(target=self.receive_video)
-            receive_video_thread.start()
-            send_video_thread = threading.Thread(target=self.send_video)
-            send_video_thread.start()
-        except socket.error as msg:
-            print(msg)
-            self.close_all()
+        receive_audio_thread = threading.Thread(target=self.receive_audio)
+        receive_audio_thread.start()
+        send_audio_thread = threading.Thread(target=self.send_audio)
+        send_audio_thread.start()
+        receive_video_thread = threading.Thread(target=self.receive_video)
+        receive_video_thread.start()
+        send_video_thread = threading.Thread(target=self.send_video)
+        send_video_thread.start()
 
     def send_video(self):
         """
@@ -99,25 +93,25 @@ class Client(object):
         code = 'start'
         code = ('start' + (BUF - len(code)) * 'a').encode('utf-8')
         done = False
-        try:
-            while cap.isOpened() and not done:
-                try:
-                    ret, frame = cap.read()
-                    if ret:
-                        self.send_chunk(code, self.send_video_socket)
-                        data = frame.tobytes()
-                        for i in range(RANGE_START, len(data), BUF):
-                            self.send_chunk(data[i:i + BUF],
-                                            self.send_video_socket)
-                        time.sleep(TIME_SLEEP)
-                    else:
-                        break
-                except socket.error as msg:
-                    print("socket failure send video: {}".format(msg))
-                    done = True
-        except ConnectionAbortedError as e:
-            print("exception send video")
-            self.send_video_socket.close()
+        #try:
+        while cap.isOpened() and not done:
+            try:
+                ret, frame = cap.read()
+                if ret:
+                    self.send_chunk(code, self.send_video_socket)
+                    data = frame.tobytes()
+                    for i in range(RANGE_START, len(data), BUF):
+                        self.send_chunk(data[i:i + BUF],
+                                        self.send_video_socket)
+                    time.sleep(TIME_SLEEP)
+                else:
+                    break
+            except socket.error as msg:
+                print("socket failure send video: {}".format(msg))
+                done = True
+        #except ConnectionAbortedError as e:
+            #print("exception send video")
+        self.send_video_socket.close()
 
     @staticmethod
     def send_chunk(chnk, sock):
@@ -149,8 +143,6 @@ class Client(object):
             while left > END:
                 chunk += self.receive_video_socket.recv(left)
                 left = left - len(chunk)
-                if chunk.startswith(b'end'):
-                    self.close_all()
             return chunk
         except Exception as e:
             print("exception receive chunk 1: {}".format(e))
@@ -160,12 +152,38 @@ class Client(object):
         """
         receives and shows video from server
         """
-        print("receive video!!!!!!!!!!!!!!!")
         self.receive_video_socket = self.start_socket(IP, RECEIVE_VIDEO_PORT)
         self.send_chunk(self.my_name.encode(), self.receive_video_socket)
         print(self.receive_mes(self.receive_video_socket))
         try:
-            show_video(self)
+            code = b'start'
+            num_of_chunks = WIDTH * HEIGHT * WID / BUF
+            done = False
+            while not done:
+                try:
+                    chunks = []
+                    start = False
+                    while len(chunks) < num_of_chunks:
+                        chunk = self.receive_chunk()
+                        if start:
+                            chunks.append(chunk)
+                        elif chunk.startswith(code):
+                            start = True
+
+                    byte_frame = b''.join(chunks)
+                    frame = np.frombuffer(
+                        byte_frame, dtype=np.uint8).reshape(HEIGHT, WIDTH, WID)
+
+                    cv.imshow('recv', frame)
+                    if cv.waitKey(WAIT_KEY) & 0xFF == ord('q'):
+                        done = True
+                except socket.error as msg:
+                    print("socket failure receive video: {}".format(msg))
+                    done = True
+
+            self.receive_video_socket.close()
+            cv.destroyAllWindows()
+
         except Exception as e:
             self.receive_video_socket.close()
             cv.destroyAllWindows()
@@ -198,8 +216,7 @@ class Client(object):
             # initiate socket
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             # connect to server
-            print("ip =", ip)
-            print("port =", port)
+            print("socket connected at ip {} and port {}".format(ip, port))
             sock.connect((ip, port))
             return sock
         except Exception as e:
@@ -218,25 +235,24 @@ class Client(object):
         print("receive stream made")
         i = 0
         done = False
-        try:
-            while not done:
-                try:
-                    i += 1
-                    data = self.receive_audio_socket.recv(CHUNK)  # gets audio chunk
-                    #print("got audio chunk number {} of length {}".format(i, len(data)))
-                    self.lock.acquire()
-                    self.voice_stream.write(data)  # plays
-                    self.lock.release()
-                    # if len(data) == 0:
-                      #   done = True
-                    #print("wrote chunk #{}".format(i))
-                except socket.error as msg:
-                    print("socket failure receive audio: {}".format(msg))
-                    done = True
-        except ConnectionAbortedError as e:
-            print("exception receive audio")
-            print('Shutting down')
-            self.close_all()
+        while not done:
+            try:
+                i += 1
+                data = self.receive_audio_socket.recv(CHUNK)  # gets audio chunk
+                print("got audio chunk number {} of length {}".format(i, len(data)))
+                self.lock.acquire()
+                self.voice_stream.write(data)  # plays
+                self.lock.release()
+                # if len(data) == 0:
+                  #   done = True
+                #print("wrote chunk #{}".format(i))
+            except socket.error as msg:
+                print("socket failure receive audio: {}".format(msg))
+                done = True
+            except KeyboardInterrupt:
+                print("exception receive audio")
+                done = True
+        self.receive_audio_socket.close()
         # stream_receive.close()
         # p_receive.terminate()
 
@@ -261,26 +277,25 @@ class Client(object):
         # stream_send = p_send.open(format=FORMAT, channels=CHANNELS, rate=RATE, frames_per_buffer=chunk, input=True,
         #                          output=False)
         print("send stream opened")
-        try:
             # Store data in chunks for 3 seconds
-            done = False
-            num = 1
-            while not done:
-                try:
-                    self.lock.acquire()
-                    data = self.voice_stream.read(chunk)   # records chunk
-                    self.lock.release()
-                    #print("chunk {} recorded".format(num))
-                    self.send_audio_socket.send(data)  # sends chunk
-                    #print("chunk {} sent".format(num))
-                    num += 1
-                except socket.error as msg:
-                    print("socket failure send audio: {}".format(msg))
-                    done = True
-            print('Finished recording')
-        except Exception as e:
-            print("sending audio error: {}".format(e))
-        self.close_all()
+        done = False
+        num = 1
+        while not done:
+            try:
+                self.lock.acquire()
+                data = self.voice_stream.read(chunk)   # records chunk
+                self.lock.release()
+                print("chunk {} recorded".format(num))
+                self.send_audio_socket.send(data)  # sends chunk
+                print("chunk {} sent".format(num))
+                num += 1
+            except socket.error as msg:
+                print("socket failure send audio: {}".format(msg))
+                done = True
+            except Exception as e:
+                print("sending audio error: {}".format(e))
+                done = True
+        self.send_audio_socket.close()
         self.voice_stream.close()
         self.voice_device.terminate()
 
@@ -292,7 +307,6 @@ class Client(object):
         self.send_video_socket.close()
         self.receive_audio_socket.close()
         self.send_audio_socket.close()
-        sys.exit(EXIT)
 
 
 def main(call_name, my_name):
@@ -302,7 +316,6 @@ def main(call_name, my_name):
     client = Client(call_name, my_name)
     while True:
         time.sleep(TIME_SLEEP)
-
 
 
 if __name__ == '__main__':
