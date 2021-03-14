@@ -8,7 +8,7 @@ from winreg import *
 #from constants import *
 import pyaudio
 VALUES_COUNT = 2
-IP = "172.29.225.45"  # IP ADDRESS
+IP = "172.29.232.74"  # IP ADDRESS
 SEND_VIDEO_PORT = 1114
 RECEIVE_VIDEO_PORT = 1113
 SEND_AUDIO_PORT = 1111
@@ -239,7 +239,7 @@ class Client(object):
             try:
                 i += 1
                 data = self.receive_audio_socket.recv(CHUNK)  # gets audio chunk
-                print("got audio chunk number {} of length {}".format(i, len(data)))
+                #print("got audio chunk number {} of length {}".format(i, len(data)))
                 self.lock.acquire()
                 self.voice_stream.write(data)  # plays
                 self.lock.release()
@@ -285,9 +285,9 @@ class Client(object):
                 self.lock.acquire()
                 data = self.voice_stream.read(chunk)   # records chunk
                 self.lock.release()
-                print("chunk {} recorded".format(num))
+                #print("chunk {} recorded".format(num))
                 self.send_audio_socket.send(data)  # sends chunk
-                print("chunk {} sent".format(num))
+                #print("chunk {} sent".format(num))
                 num += 1
             except socket.error as msg:
                 print("socket failure send audio: {}".format(msg))
